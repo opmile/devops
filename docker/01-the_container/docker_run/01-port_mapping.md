@@ -136,6 +136,6 @@ A partir disso, você decide como mapear para fora:
 docker run -p 8080:80 imagem
 ```
 
-Ou seja: você acessa pelo **8080** (ou 9000, ou qualquer porta do seu interesse), o serviço roda no container na **80**.
+Ou seja: você acessa pelo **8080** (ou 9000, ou qualquer porta do seu interesse), e o serviço roda no container na **80**.
 
 
