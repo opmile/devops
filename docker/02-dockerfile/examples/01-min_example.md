@@ -82,7 +82,7 @@ Esse tipo de JAR é chamado de **fat jar** ou **uber jar**.
 
 Se o Maven já gerou o JAR, o Dockerfile fica assim:
 
-```
+```dockerfile
 FROM eclipse-temurin:17-jre
 
 WORKDIR /app
