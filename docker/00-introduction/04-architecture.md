@@ -51,6 +51,11 @@ Ele roda **no Docker Host** (a máquina onde o Docker está instalado), e é ele
 Resumindo:
 **O client pede. O daemon executa.**
 
+Docker **Engine** é o “pacote completo” responsável por fazer o Docker funcionar. Dentro dele existe o **Docker Daemon** (o famoso `dockerd`), que é o serviço de fundo que realmente *executa* e *orquestra* tudo: containers, imagens, redes, volumes, etc. Ou seja:
+
+* **Docker Engine** → é o conjunto de componentes que formam o Docker (CLI, API, Daemon…).
+* **Docker Daemon (`dockerd`)** → é o processo que roda “por trás” e faz o trabalho pesado. É ele quem cria containers, baixa imagens, gerencia redes, etc.
+
 ---
 
 ## 3. Docker Host
