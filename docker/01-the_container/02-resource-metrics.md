@@ -4,6 +4,14 @@ Container = processo isolado por **cgroups** + **namespaces**. Não é VM.
 Compartilha kernel com host. Se um container come toda RAM/CPU, **afeta
 vizinhos**. Métrica = visibilidade desse impacto.
 
+> **cgroups** (Control Groups) são um recurso do kernel Linux que **limita,
+> contabiliza e isola** o uso de hardware (CPU, memória, I/O de disco, rede)
+> por um grupo de processos. Funcionam como um "administrador": definem o teto
+> de RAM que o container pode usar, ditam o que acontece se ele tentar
+> exceder, e limitam tempo de CPU ou número de cores que o container pode
+> consumir — impedindo que um container monopolize o sistema. Toda métrica
+> que `docker stats` mostra vem de leitura direta dos cgroups.
+
 ---
 
 ## Por que isso importa
@@ -55,15 +63,26 @@ Percentual de **CPU host total disponível ao container**.
 `Usage / Limit`. Útil para alerta (acima de 80% investigar).
 
 #### NET I/O
-Bytes RX/TX **acumulados** desde start do container.
+Bytes **RX/TX acumulados** desde start do container.
+- **RX (Receive):** bytes recebidos — dados entrando no container (request
+  chegando, resposta de API externa, download).
+- **TX (Transmit):** bytes enviados — dados saindo do container (response
+  voltando, request pra serviço externo, upload).
+- É **normal** RX e TX serem desbalanceados. Servidor web típico: RX baixo
+  (requests pequenos), TX alto (responses com HTML/JSON/assets). Worker que
+  consome fila e envia métrica: o oposto.
 - Soma de todas interfaces do namespace de rede do container.
 - Útil para detectar: exfiltração de dados, gargalo de rede, serviço chatty.
 - **Não diferencia** tráfego interno (entre containers) vs externo.
 
 #### BLOCK I/O
 Bytes read/write em **block devices**. Acumulado.
+- **Block device** = dispositivo de armazenamento que lê/escreve em blocos
+  fixos com acesso aleatório (SSD, HD, USB, CD-ROM). É a categoria de I/O
+  usada por arquivos persistentes — em oposição a *character devices*
+  (teclado, mouse, áudio) que streamam bytes sequencialmente.
 - Mede I/O em volumes/disco real.
-- **Não conta** tmpfs ou overlayfs em memória.
+- **Não conta** tmpfs ou overlayfs em memória (essas não tocam block device).
 - Write contínuo alto = log mal configurado, DB sem cache, swap thrashing.
 
 #### PIDS
@@ -155,7 +174,7 @@ Limitação: dev-only. Em produção usa-se Prometheus + cAdvisor + Grafana
 
 ---
 
-## Conexão com Go (contexto do lab `go-socket`)
+## Conexão Golang
 
 Goroutines **não** são 1:1 com PIDs. Runtime Go usa **scheduler M:N** — N
 goroutines multiplexadas em M threads OS.
