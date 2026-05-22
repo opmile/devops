@@ -35,6 +35,18 @@ Nada de IPs, nada de `localhost`, nada de portas externas mapeadas.
 
 Cada container ainda tem **seu próprio NET namespace** — IP próprio, interface própria, tabela de sockets própria. Eles conversam **através da rede bridge** que o Compose criou.
 
+### Por que isso importa — DNS por nome, não por IP
+
+O Compose embute um **DNS interno** na rede bridge. Cada service registrado vira um hostname resolvível pelos outros containers da mesma rede. Quando a API faz `connect("db", 5432)`, o resolver do container consulta esse DNS e recebe o IP atual do container `db` naquela rede. Sem hardcodar IP, sem `links:`, sem variável de ambiente apontando endereço.
+
+Três razões pelas quais isso é load-bearing:
+
+- **IPs de container são voláteis.** Sobe, derruba, recria — o IP muda. O nome do service é estável; o DNS resolve pro IP correto a cada lookup.
+- **Isolamento por stack.** Cada `compose.yml` tem sua própria rede e seu próprio resolver DNS. O service `postgres` da stack A não colide com o `postgres` da stack B — vivem em redes separadas.
+- **Service name = contrato.** O nome no YAML é literalmente o hostname. `services.postgres` significa que `postgres` resolve. Renomear pra `db` quebra todo mundo que conectava em `postgres`.
+
+Resultado: a connection string da API fica `postgres://user:pass@db:5432/mydb` mesmo sem `ports:` no banco. A resolução é interna, totalmente independente do que está (ou não) publicado no host.
+
 ---
 
 ## `networks:` — definindo redes customizadas
@@ -137,6 +149,49 @@ Em produção, o normal é:
 
 - Frontend público: `ports:` exposto (ou Nginx fazendo proxy).
 - Tudo o resto: comunicação interna apenas, **sem `ports:`**. Reduz superfície de ataque.
+
+### Exemplo 1 — precisa de `ports:` (dev local)
+
+Você quer abrir o DBeaver na sua máquina e inspecionar tabelas, rodar queries manuais, debugar dados durante o desenvolvimento.
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: dev
+    ports:
+      - "5432:5432"  # publica no host pra DBeaver conectar em localhost:5432
+```
+
+Sem `ports:`, o DBeaver não alcança o container — ele roda no host, fora da rede do Compose.
+
+> Se a porta 5432 do host já estiver ocupada por um Postgres local, use `"5433:5432"` (mapeia 5433 do host pra 5432 do container).
+
+### Exemplo 2 — não precisa de `ports:` (produção)
+
+A API é o único cliente do banco. Ninguém de fora deve conseguir abrir conexão no Postgres.
+
+```yaml
+services:
+  api:
+    build: .
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    # sem ports: — Postgres não fica exposto no host
+```
+
+A API resolve `postgres:5432` pela rede interna do Compose. Publicar no host só aumentaria a superfície de ataque sem benefício.
+
+**Regra prática:** se nada fora do Compose precisa falar com o serviço, omita `ports:`. Serviços na mesma rede se enxergam por padrão.
 
 ---
 
